@@ -61,8 +61,8 @@ describe("Transfer token", function () {
     expect(contractOwnerBalanceBefore.toNumber()).to.eq(TOTAL_SUPPLY);
     expect(wallet1BalanceBefore.toNumber()).to.eq(0);
 
-    const tx = await tokenCreateContract.transferTokenPublic(tokenAddress, tokenCreateContract.address, signers[0].address, INITIAL_BALANCE);
-    // const tx = await tokenTransferContract.transferTokenPublic(tokenAddress, tokenCreateContract.address, signers[0].address, INITIAL_BALANCE);
+    // const tx = await tokenCreateContract.transferTokenPublic(tokenAddress, tokenCreateContract.address, signers[0].address, INITIAL_BALANCE);
+    const tx = await tokenTransferContract.transferTokenPublic(tokenAddress, tokenCreateContract.address, signers[0].address, INITIAL_BALANCE);
     await tx.wait();
 
     const contractOwnerBalanceAfter = await erc20Contract.balanceOf(tokenAddress, tokenCreateContract.address);
