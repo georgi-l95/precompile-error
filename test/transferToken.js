@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-describe("Transfer token", function () {
+describe("Grand setApproveForAll", function () {
   const gasLimitOverride = { gasLimit: 1_000_000 };
 
   let tokenCreateContract;
@@ -46,7 +46,7 @@ describe("Transfer token", function () {
     // associate token
     const associateTx1 = await ethers.getContractAt("TokenCreateContract", tokenCreateContract.address, signers[0]);
     const associateTx2 = await ethers.getContractAt("TokenCreateContract", tokenCreateContract.address, signers[1]);
-    await tokenCreateContract.associateTokenPublic(erc721Contract.address, tokenAddress, gasLimitOverride);
+    await erc721Contract.associateTokenPublic(erc721Contract.address, tokenAddress, gasLimitOverride);
     await associateTx1.associateTokenPublic(signers[0].address, tokenAddress, gasLimitOverride);
     await associateTx2.associateTokenPublic(signers[1].address, tokenAddress, gasLimitOverride);
     console.log(`associate token - done`);
@@ -60,9 +60,9 @@ describe("Transfer token", function () {
 
   it("Should be able to grand setApproveForAll", async function () {
     const secondWallet = (await ethers.getSigners())[1];
-    const isApprovedForAllBefore = await erc721Contract.isApprovedForAll(nftTokenAddress, erc721Contract.address, secondWallet.address);
-    await erc721Contract.setApprovalForAll(nftTokenAddress, secondWallet.address, true, {gasLimit: 1_000_000});
-    const isApprovedForAllAfter = await erc721Contract.isApprovedForAll(nftTokenAddress, erc721Contract.address, secondWallet.address);
+    const isApprovedForAllBefore = await erc721Contract.isApprovedForAlll(nftTokenAddress, erc721Contract.address, secondWallet.address);
+    await erc721Contract.setApprovalForAlll(nftTokenAddress, secondWallet.address, true, {gasLimit: 1_000_000});
+    const isApprovedForAllAfter = await erc721Contract.isApprovedForAlll(nftTokenAddress, erc721Contract.address, secondWallet.address);
 
     expect(isApprovedForAllBefore).to.equal(false);
     expect(isApprovedForAllAfter).to.equal(true);
