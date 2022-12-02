@@ -4,8 +4,8 @@ describe("Transfer token", function () {
 
   let tokenCreateContract;
   let tokenTransferContract;
-  let erc20Contract;
-  let tokenAddress;
+  let erc721Contract;
+  let nftTokenAddress;
   let signers;
 
   before(async function () {
@@ -13,34 +13,40 @@ describe("Transfer token", function () {
 
     // deploy TokenCreateContract
     const tokenCreateFactory = await ethers.getContractFactory("TokenCreateContract");
-    const tokenCreateTx = await tokenCreateFactory.deploy(gasLimitOverride);
-    tokenCreateContract = await ethers.getContractAt("TokenCreateContract", (await tokenCreateTx.deployTransaction.wait()).contractAddress);
+    const tokenCreateTx = await tokenCreateFactory.connect(signers[0]).deploy(gasLimitOverride);
+    tokenCreateContract = await ethers.getContractAt("TokenCreateContract", (await tokenCreateTx.deployTransaction.wait()).contractAddress, signers[0]);
     console.log(`deployed tokenCreateContract to: ${tokenCreateContract.address}`);
 
     // deploy TokenTransferContract
     const tokenTransferFactory = await ethers.getContractFactory("TokenTransferContract");
-    const tokenTransfer = await tokenTransferFactory.deploy(gasLimitOverride);
-    tokenTransferContract = await ethers.getContractAt("TokenTransferContract", (await tokenTransfer.deployTransaction.wait()).contractAddress);
+    const tokenTransfer = await tokenTransferFactory.connect(signers[0]).deploy(gasLimitOverride);
+    tokenTransferContract = await ethers.getContractAt("TokenTransferContract", (await tokenTransfer.deployTransaction.wait()).contractAddress, signers[0]);
     console.log(`deployed tokenTransferContract to: ${tokenTransferContract.address}`);
 
-    // deploy erc20 wrapper
-    const erc20ContractFactory = await ethers.getContractFactory("ERC20Contract");
-    const erc20 = await erc20ContractFactory.deploy(gasLimitOverride);
-    erc20Contract = await ethers.getContractAt("ERC20Contract", (await erc20.deployTransaction.wait()).contractAddress);
-    console.log(`deployed erc20Contract to: ${erc20Contract.address}`);
+    // deploy erc721 wrapper
+    const erc721ContractFactory = await ethers.getContractFactory("ERC721Contract");
+    const erc721ContractDeployment = await erc721ContractFactory.connect(signers[0]).deploy({gasLimit: 1_000_000,});
+    const erc721ContractReceipt = await erc721ContractDeployment.deployTransaction.wait();
+    erc721Contract = await ethers.getContractAt("ERC721Contract",erc721ContractReceipt.contractAddress, signers[0]);
+    console.log(`deployed erc721Contract to: ${erc721Contract.address}`);
 
     // create fungible token
-    const tokenAddressTx = await tokenCreateContract.createFungibleTokenPublic(tokenCreateContract.address, {
-      value: "10000000000000000000",
-      ...gasLimitOverride
-    });
-    tokenAddress = (await tokenAddressTx.wait()).events.filter((e) => e.event === "CreatedToken")[0].args.tokenAddress;
-    console.log(`created fungible token to: ${tokenAddress}`);
+    const tokenAddressTx = await tokenCreateContract.createNonFungibleTokenPublic(
+      tokenCreateContract.address,
+      {
+        value: "10000000000000000000",
+        gasLimit: 1_000_000,
+      }
+    );
+    const tokenAddressReceipt = await tokenAddressTx.wait();
+    const { tokenAddress } = tokenAddressReceipt.events.filter((e) => e.event === "CreatedToken")[0].args;
+    nftTokenAddress = tokenAddress
+    console.log(`created non fungible token to: ${tokenAddress}`);
 
     // associate token
     const associateTx1 = await ethers.getContractAt("TokenCreateContract", tokenCreateContract.address, signers[0]);
     const associateTx2 = await ethers.getContractAt("TokenCreateContract", tokenCreateContract.address, signers[1]);
-    await tokenCreateContract.associateTokenPublic(tokenCreateContract.address, tokenAddress, gasLimitOverride);
+    await tokenCreateContract.associateTokenPublic(erc721Contract.address, tokenAddress, gasLimitOverride);
     await associateTx1.associateTokenPublic(signers[0].address, tokenAddress, gasLimitOverride);
     await associateTx2.associateTokenPublic(signers[1].address, tokenAddress, gasLimitOverride);
     console.log(`associate token - done`);
@@ -52,22 +58,13 @@ describe("Transfer token", function () {
     console.log('grant kyc - done');
   });
 
-  it("Should be able to transfer 300 tokens from contract to signers[0] via tokenCreateContract", async function () {
-    const INITIAL_BALANCE = 300;
-    const TOTAL_SUPPLY = 1000;
+  it("Should be able to grand setApproveForAll", async function () {
+    const secondWallet = (await ethers.getSigners())[1];
+    const isApprovedForAllBefore = await erc721Contract.isApprovedForAll(nftTokenAddress, erc721Contract.address, secondWallet.address);
+    await erc721Contract.setApprovalForAll(nftTokenAddress, secondWallet.address, true, {gasLimit: 1_000_000});
+    const isApprovedForAllAfter = await erc721Contract.isApprovedForAll(nftTokenAddress, erc721Contract.address, secondWallet.address);
 
-    const contractOwnerBalanceBefore = await erc20Contract.balanceOf(tokenAddress, tokenCreateContract.address);
-    const wallet1BalanceBefore = await erc20Contract.balanceOf(tokenAddress, signers[0].address);
-    expect(contractOwnerBalanceBefore.toNumber()).to.eq(TOTAL_SUPPLY);
-    expect(wallet1BalanceBefore.toNumber()).to.eq(0);
-
-    // const tx = await tokenCreateContract.transferTokenPublic(tokenAddress, tokenCreateContract.address, signers[0].address, INITIAL_BALANCE);
-    const tx = await tokenTransferContract.transferTokenPublic(tokenAddress, tokenCreateContract.address, signers[0].address, INITIAL_BALANCE);
-    await tx.wait();
-
-    const contractOwnerBalanceAfter = await erc20Contract.balanceOf(tokenAddress, tokenCreateContract.address);
-    const wallet1BalanceAfter = await erc20Contract.balanceOf(tokenAddress, signers[0].address);
-    expect(contractOwnerBalanceAfter.toNumber()).to.eq(TOTAL_SUPPLY - INITIAL_BALANCE);
-    expect(wallet1BalanceAfter.toNumber()).to.eq(INITIAL_BALANCE);
+    expect(isApprovedForAllBefore).to.equal(false);
+    expect(isApprovedForAllAfter).to.equal(true);
   });
 });
